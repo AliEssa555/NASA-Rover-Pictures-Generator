@@ -1,131 +1,81 @@
-// src/public/js/app.js
-class NasaExplorer {
+class MarsRoverApp {
     constructor() {
+        this.currentRover = 'curiosity';
         this.init();
     }
 
     init() {
-        this.bindEvents();
-        this.loadPopularImages();
-    }
-
-    bindEvents() {
-        document.getElementById('searchBtn').addEventListener('click', () => this.search());
-        document.getElementById('searchInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.search();
+        document.getElementById('load-photos').addEventListener('click', () => this.loadPhotos());
+        document.getElementById('rover-select').addEventListener('change', (e) => {
+            this.currentRover = e.target.value;
         });
-
-        // Quick search buttons
-        document.querySelectorAll('.quick-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const searchTerm = e.target.dataset.search;
-                document.getElementById('searchInput').value = searchTerm;
-                this.search();
-            });
-        });
-    }
-
-    async search() {
-        const query = document.getElementById('searchInput').value.trim();
-        if (!query) return;
-
-        this.showLoading();
-        this.hideResults();
-        this.hideError();
-
-        try {
-            const response = await fetch(`/api/nasa/search?q=${encodeURIComponent(query)}`);
-            const data = await response.json();
-            
-            if (data.collection && data.collection.items) {
-                this.displayResults(data.collection.items);
-            } else {
-                this.showError('No images found. Try a different search term.');
-            }
-        } catch (error) {
-            this.showError('Failed to search NASA archives. Please try again.');
-        } finally {
-            this.hideLoading();
-        }
-    }
-
-    async loadPopularImages() {
-        try {
-            const response = await fetch('/api/nasa/popular');
-            const data = await response.json();
-            
-            if (data.collection && data.collection.items) {
-                this.displayResults(data.collection.items);
-            }
-        } catch (error) {
-            console.error('Failed to load popular images:', error);
-        }
-    }
-
-    displayResults(items) {
-        const grid = document.getElementById('resultsGrid');
-        grid.innerHTML = '';
-
-        items.forEach(item => {
-            if (item.links && item.links[0] && item.data && item.data[0]) {
-                const imageUrl = item.links[0].href;
-                const metadata = item.data[0];
-                
-                const card = this.createImageCard(imageUrl, metadata);
-                grid.appendChild(card);
-            }
-        });
-
-        this.showResults();
-    }
-
-    createImageCard(imageUrl, metadata) {
-        const card = document.createElement('div');
-        card.className = 'image-card';
+        document.getElementById('download-btn').addEventListener('click', () => this.downloadImages());
         
-        card.innerHTML = `
-            <img src="${imageUrl}" alt="${metadata.title}" onerror="this.src='https://via.placeholder.com/300x200/2c5364/ffffff?text=Image+Not+Available'">
-            <div class="image-info">
-                <div class="image-title">${this.truncateText(metadata.title, 50)}</div>
-                <div class="image-description">${this.truncateText(metadata.description || 'No description available', 100)}</div>
+        // Load initial photos
+        this.loadPhotos();
+    }
+
+    async loadPhotos() {
+        this.showLoading(true);
+        
+        try {
+            const response = await fetch(`/api/photos/${this.currentRover}`);
+            const data = await response.json();
+            this.displayPhotos(data.photos);
+        } catch (error) {
+            console.error('Error loading photos:', error);
+            this.displayError('Failed to load Mars photos');
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+    displayPhotos(photos) {
+        const container = document.getElementById('photos-container');
+        container.innerHTML = '';
+
+        photos.slice(0, 12).forEach(photo => {
+            const photoCard = this.createPhotoCard(photo);
+            container.appendChild(photoCard);
+        });
+    }
+
+    createPhotoCard(photo) {
+        const div = document.createElement('div');
+        div.className = 'photo-card';
+        div.innerHTML = `
+            <img src="${photo.img_src}" alt="Mars Rover Photo" loading="lazy">
+            <div class="photo-info">
+                <h3>${photo.rover.name} Rover</h3>
+                <p>Camera: ${photo.camera.full_name}</p>
+                <p>Date: ${photo.earth_date}</p>
+                <p>Sol: ${photo.sol}</p>
             </div>
         `;
-
-        return card;
+        return div;
     }
 
-    truncateText(text, maxLength) {
-        return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+    async downloadImages() {
+        try {
+            const response = await fetch('/api/photos/download');
+            const result = await response.json();
+            alert('Download process started! Check console for details.');
+        } catch (error) {
+            console.error('Download error:', error);
+        }
     }
 
-    showLoading() {
-        document.getElementById('loading').classList.remove('hidden');
+    showLoading(show) {
+        document.getElementById('loading').classList.toggle('hidden', !show);
     }
 
-    hideLoading() {
-        document.getElementById('loading').classList.add('hidden');
-    }
-
-    showResults() {
-        document.getElementById('resultsSection').classList.remove('hidden');
-    }
-
-    hideResults() {
-        document.getElementById('resultsSection').classList.add('hidden');
-    }
-
-    showError(message) {
-        const errorDiv = document.getElementById('errorMessage');
-        errorDiv.textContent = message;
-        errorDiv.classList.remove('hidden');
-    }
-
-    hideError() {
-        document.getElementById('errorMessage').classList.add('hidden');
+    displayError(message) {
+        const container = document.getElementById('photos-container');
+        container.innerHTML = `<div class="error">${message}</div>`;
     }
 }
 
-// Initialize the app when DOM is loaded
+// Initialize app when page loads
 document.addEventListener('DOMContentLoaded', () => {
-    new NasaExplorer();
+    new MarsRoverApp();
 });

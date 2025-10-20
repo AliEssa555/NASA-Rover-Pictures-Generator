@@ -1,51 +1,47 @@
-// src/services/nasaService.js
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
 class NasaService {
-  constructor() {
-    this.baseURL = 'https://images-api.nasa.gov';
-  }
+    constructor() {
+        this.baseURL = 'https://api.nasa.gov/mars-photos/api/v1';
+        this.apiKey = process.env.NASA_API_KEY || 'DEMO_KEY';
+    }
 
-  // Search NASA images
-  async search(query, page = 1) {
-    try {
-      const response = await axios.get(`${this.baseURL}/search`, {
-        params: {
-          q: query,
-          media_type: 'image',
-          page: page
+    async fetchMarsPhotos(rover = 'curiosity', sol = 1000) {
+        try {
+            const response = await axios.get(
+                `${this.baseURL}/rovers/${rover}/photos`,
+                {
+                    params: { sol, api_key: this.apiKey }
+                }
+            );
+            return response.data;
+        } catch (error) {
+            throw new Error(`NASA API error: ${error.message}`);
         }
-      });
-      return response.data;
-    } catch (error) {
-      throw new Error(`NASA API error: ${error.message}`);
     }
-  }
 
-  // Get asset details by NASA ID
-  async getAssetDetails(nasaId) {
-    try {
-      const response = await axios.get(`${this.baseURL}/asset/${nasaId}`);
-      return response.data;
-    } catch (error) {
-      throw new Error(`NASA API error: ${error.message}`);
+    async fetchPhotosByRover(rover) {
+        return this.fetchMarsPhotos(rover);
     }
-  }
 
-  // Get popular or recent images
-  async getPopularImages() {
-    try {
-      const response = await axios.get(`${this.baseURL}/search`, {
-        params: {
-          q: 'galaxy,mars,earth,moon',
-          media_type: 'image'
+    async downloadLatestImages() {
+        const data = await this.fetchMarsPhotos();
+        const downloadDir = './downloads';
+        
+        if (!fs.existsSync(downloadDir)) {
+            fs.mkdirSync(downloadDir);
         }
-      });
-      return response.data;
-    } catch (error) {
-      throw new Error(`NASA API error: ${error.message}`);
+
+        const downloadPromises = data.photos.slice(0, 5).map(async (photo, index) => {
+            // Implementation for downloading images
+            console.log(`Would download: ${photo.img_src}`);
+            return photo.img_src;
+        });
+
+        return Promise.all(downloadPromises);
     }
-  }
 }
 
 module.exports = new NasaService();
